@@ -115,10 +115,14 @@ class Logger:
         self.logger.setLevel(level)
         self.console_handle = TqdmLoggingHandler()
         self.logger.addHandler(self.console_handle)
-        if not output_file is None:
+        if output_file is not None:
             if os.path.exists(output_file.name) and os.stat(output_file.name).st_size > 0:
-                msg = LogStyle.INFO + ' ' + f"Appending to existing file: {output_file.name}"
-                msg = datetime.datetime.now().strftime(LogStyle.TIMESTAMP) + ' ' + msg if self.timestamp else None
+                msg = f'{LogStyle.INFO} ' + f"Appending to existing file: {output_file.name}"
+                msg = (
+                    f'{datetime.datetime.now().strftime(LogStyle.TIMESTAMP)} {msg}'
+                    if self.timestamp
+                    else None
+                )
                 self.logger.info(msg)
             file_handler = logging.FileHandler(output_file.name)
             file_handler.setLevel(level)
@@ -136,12 +140,12 @@ class Logger:
 
         # apply the log styling, using info if we don't know what style to use
         if level not in [attr for attr in dir(LogStyle) if attr[0].isupper()]:
-            message = LogStyle.INFO + ' ' + message
+            message = f'{LogStyle.INFO} {message}'
         else:
-            message = f"{getattr(LogStyle, level)}" + ' ' + message
+            message = f"{getattr(LogStyle, level)} {message}"
 
         if self.timestamp:
-            message = datetime.datetime.now().strftime(LogStyle.TIMESTAMP) + ' ' + message
+            message = f'{datetime.datetime.now().strftime(LogStyle.TIMESTAMP)} {message}'
 
         self.logger.info(message)
         self.console_handle.flush()
@@ -357,18 +361,14 @@ def prep_thread_worker(ip, port, agent, test, timeout, verbose, thread_id, sleep
     Support threading for prep task to check if IP/PORT is responsive to 'GET /' using 'Host: {ip}:{port}'
     """
     result = None
-    proto = "http"
-    # TBD: implement a better SSL/TLS protocol check
-    #      it may be getting 'better', but it's a kludge/cluster
-    if port == '443' or re.match('.*443.*', port):
-        proto = 'https'
+    proto = 'https' if port == '443' or re.match('.*443.*', port) else "http"
     if looks_ipv6(ip):
         url = f"{proto}://[{ip}]:{port}/"
     else:
         url = f"{proto}://{ip}:{port}/"
     headers = {'Host': f"{ip}:{port}"}
     if agent:
-        headers.update({'User-Agent': agent})
+        headers['User-Agent'] = agent
     if test:
         return
     if sleep_val > 0:
@@ -423,7 +423,7 @@ def notify_rslt(fqdn, ip, port, response):
         # trim the 3xx location for display
         resp_loc = response.headers['Location']
         if len(resp_loc) > 100:
-            resp_loc = f"{resp_loc[0:99]}..."
+            resp_loc = f"{resp_loc[:99]}..."
         tqdm.write(f"  \033[92m++RCVD++\033[0m ({response.status_code} {response.reason}) {fqdn} @ {ip}:{port} ==> {resp_loc}")
     else:
         tqdm.write(f"  \033[92m++RCVD++\033[0m ({response.status_code} {response.reason}) {fqdn} @ {ip}:{port}")
@@ -433,17 +433,14 @@ def thread_worker(ip, port, fqdn, agent, test, timeout, verbose, thread_id, slee
     Support threading for testing IP:PORT using FQDN in HTTP Host header
     """
     result = None
-    proto = "http"
-    # TBD: implement a better SSL/TLS protocol check
-    if port == '443' or re.match('.*443.*', port):
-        proto = 'https'
+    proto = 'https' if port == '443' or re.match('.*443.*', port) else "http"
     if looks_ipv6(ip):
         url = f"{proto}://[{ip}]:{port}/"
     else:
         url = f"{proto}://{ip}:{port}/"
     headers = {'Host': f"{fqdn}"}
     if agent:
-        headers.update({'User-Agent': agent})
+        headers['User-Agent'] = agent
     if test:
         return
     if sleep_val > 0:
